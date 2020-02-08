@@ -67,6 +67,8 @@ class html2csv(HTMLParser):
            2002-09-20 : - now uses HTMLParser.HTMLParser instead of htmllib.HTMLParser.
                         - now parses command-line.
            2020-02-07 : - Updated to Python 3
+                        - Added support for <th> tags
+                        - Fixed edge UTF8 encoding issues
         To do:
             - handle <PRE> tags
             - convert html entities (&name; and &#ref;) to Ascii.
@@ -155,13 +157,9 @@ class html2csv(HTMLParser):
         if purge and self.inTR:
             # This will also end_td and append last CSV row to output CSV.
             self.end_tr()
-        dataout = self.CSV[:]
+        dataout = self.CSV[:].encode()
         self.CSV = ''
         return dataout
-
-
-def removeNonAscii(s):
-    return "".join(i for i in s if ord(i) < 128)
 
 
 if __name__ == "__main__":
@@ -173,7 +171,7 @@ if __name__ == "__main__":
     if len(args) == 0:
         print(usage(sys.argv[0]))  # print help information and exit:
         sys.exit(2)
-    print(programname)
+    print(f"{programname}\n")
     html_files = glob.glob(args[0])
     for htmlfilename in html_files:
         outputfilename = os.path.splitext(htmlfilename)[0]+'.csv'
@@ -185,16 +183,20 @@ if __name__ == "__main__":
             data = htmlfile.read(8192).decode("utf-8", "replace")
             while data:
                 parser.feed(data)
-                csvfile.write(parser.getCSV().encode())
+                csvfile.write(parser.getCSV())
                 sys.stdout.write('%d CSV rows written.\r' % parser.rowCount)
-                data = htmlfile.read(8192)
-            csvfile.write(parser.getCSV(True).encode())
+                data = htmlfile.read(8192).decode("utf-8", "replace")
+            csvfile.write(parser.getCSV(True))
             csvfile.close()
             htmlfile.close()
+            print('\n\nAll done.')
         except:
-            print ( 'Error converting %s        ' % htmlfilename )
-            try:    htmlfile.close()
-            except: pass
-            try:    csvfile.close()
-            except: pass
-    print('\nAll done.')
+            print('\n\nError converting %s        ' % htmlfilename)
+            try:
+                htmlfile.close()
+            except:
+                pass
+            try:
+                csvfile.close()
+            except:
+                pass
